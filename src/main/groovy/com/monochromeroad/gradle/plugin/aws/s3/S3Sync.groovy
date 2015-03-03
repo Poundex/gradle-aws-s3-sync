@@ -1,20 +1,21 @@
 package com.monochromeroad.gradle.plugin.aws.s3
 
-import org.gradle.api.DefaultTask
-import org.gradle.api.tasks.TaskAction
 import org.gradle.api.PathValidation
+import org.gradle.api.internal.file.copy.CopyAction
+import org.gradle.api.tasks.AbstractCopyTask
+import org.gradle.api.tasks.TaskAction
 import org.jets3t.apps.synchronize.Synchronize
+import org.jets3t.service.Constants
+import org.jets3t.service.Jets3tProperties
 import org.jets3t.service.impl.rest.httpclient.RestS3Service
 import org.jets3t.service.security.AWSCredentials
-import org.jets3t.service.Jets3tProperties
-import org.jets3t.service.Constants
 
 /**
  * Main task class for the plugin
  *
  * @author Masatoshi Hayashi
  */
-class S3Sync extends DefaultTask {
+class S3Sync extends AbstractCopyTask {
 
     def accessKey
 
@@ -51,18 +52,9 @@ class S3Sync extends DefaultTask {
     private File sourceDir
 
     private String destination
-    
-    void from(sourcePath) {
-        originalSourcePath = sourcePath
-        sourceDir = project.file(sourcePath)
-    }
 
-    void into(destinationPath) {
-        destination = destinationPath.toString()
-    }
-
-    @TaskAction
-    def sync() {
+    @Override @TaskAction
+    protected void copy() {
         def awsCredentials = new AWSCredentials(accessKey, secretKey)
         def s3Service = new RestS3Service(awsCredentials)
 
@@ -90,9 +82,13 @@ class S3Sync extends DefaultTask {
             if (useMD5) {
                 new File(properties.getStringProperty("filecomparer.md5-files-root-dir", "")).mkdirs();
             }
-            def sources = sourceDir.listFiles()
+
+
+
+            File[] sources = getSource().getFiles() as File[]
+            String remoteDestination = rootSpec.buildRootResolver().getDestPath()
             if (sources) {
-                client.run(destination, sources,
+                client.run(remoteDestination, sources,
                         action,
                         properties.getStringProperty("password", null), aclString,
                         "S3");
@@ -129,5 +125,11 @@ class S3Sync extends DefaultTask {
             throw new IllegalStateException("the config file cannot be read : " + synchronizeProperties.absolutePath)
         }
         return myProperties
+    }
+
+    @Override
+    protected CopyAction createCopyAction()
+    {
+        return null
     }
 }
